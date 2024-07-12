@@ -7,7 +7,6 @@ module.exports = {
   },
   extends: [
     'eslint:recommended',
-    'plugin:@typescript-eslint/recommended',
     'plugin:react-hooks/recommended',
     'airbnb',
     'airbnb/hooks',
@@ -15,8 +14,8 @@ module.exports = {
     'plugin:import/warnings',
     'plugin:import/typescript',
     'plugin:@typescript-eslint/recommended',
-    'plugin:@typescript-eslint/recommended-requiring-type-checking'
-    
+    'plugin:@typescript-eslint/recommended-requiring-type-checking',
+    'prettier'
   ],
   ignorePatterns: ['dist', '.eslintrc.cjs'],
   parser: '@typescript-eslint/parser',
