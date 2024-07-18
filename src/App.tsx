@@ -1,7 +1,50 @@
 import { useState, FC, ChangeEvent, useEffect } from 'react';
 import axiosBase, { AxiosError, AxiosInstance } from 'axios';
+import { initializeApp } from 'firebase/app';
+import {
+  getAuth,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+} from 'firebase/auth';
+
+import Button from '@mui/material/Button';
+
+// Firebaseの初期化
+const GCP_PROJECTS_ID = import.meta.env.VITE_GCP_PROJECTS_ID || '';
+const config = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: GCP_PROJECTS_ID,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+};
+const app = initializeApp(config);
+const auth = getAuth(app);
 
 import './App.css';
+import {
+  AppBar,
+  Toolbar,
+  Typography,
+  FormControl,
+  TextField,
+  Card,
+  CardContent,
+  CardActions,
+  Collapse,
+  IconButton,
+  IconButtonProps,
+  styled,
+  Box,
+  FormControlLabel,
+  Switch,
+  Skeleton,
+} from '@mui/material';
+import Grid from '@mui/material/Unstable_Grid2';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import WarningIcon from '@mui/icons-material/Warning';
+
 // ステータスコード
 const STATUS_CODE = {
   OK: 200,
@@ -75,8 +118,7 @@ const App: FC = () => {
     name: string;
     isShow: boolean;
   };
-  const initTimelines: Timeline[] = [];
-  const [timelines, setTimelines] = useState(initTimelines);
+  const [timelines, setTimelines] = useState<Timeline[]>([]);
   const showHateTimeline = (timeline: Timeline) => {
     const updateTimeline = timelines.map((t) =>
       t.postDocId === timeline.postDocId ? { ...t, isShow: true } : t,
@@ -93,7 +135,6 @@ const App: FC = () => {
     name: string;
   };
   const fetchTimelines = async () => {
-    //TODO:ローディングオン
     const response = await axiosUtil.get('/fetch');
     if (response) {
       const responseTimelines: ResponseTimeline[] = response.data.timelines;
@@ -112,7 +153,7 @@ const App: FC = () => {
     }
   };
 
-  const [showHate, setShowHate] = useState(false);
+  const [showHate, setShowHate] = useState<boolean>(false);
   const handleShowHateCheckbox = (event: ChangeEvent<HTMLInputElement>) => {
     setShowHate(event.target.checked);
   };
@@ -137,105 +178,225 @@ const App: FC = () => {
     );
   };
 
+  type User = {
+    id: string;
+    email: string;
+    name: string;
+  };
+  const [user, setUser] = useState<User | null>(null);
+
+  const getIdentityPlatformUser = () => {
+    let user = null;
+
+    try {
+      if (auth.currentUser && auth.currentUser) {
+        user = auth.currentUser;
+      }
+    } catch (error) {
+      console.log(error);
+    } finally {
+      return user;
+    }
+  };
+
+  interface ExpandMoreProps extends IconButtonProps {
+    expand: boolean;
+  }
+
+  const [expanded, setExpanded] = useState(true);
+  const handleExpandClick = () => {
+    setExpanded(!expanded);
+  };
+
+  const initUser = async () => {
+    // ユーザー情報取得
+    let identityPlatformUser = getIdentityPlatformUser();
+    if (identityPlatformUser) {
+      // サーバからユーザ情報取得
+      await getUser();
+    } else {
+      // authが未ロードの場合もあるので、その場合はロードを待つ
+      onAuthStateChanged(auth, async () => {
+        identityPlatformUser = getIdentityPlatformUser();
+        if (identityPlatformUser) {
+          // TODO: サーバからユーザ情報取得
+          await getUser();
+        } else {
+          // TODO: 未ログイン時は未ログインであることを通知する
+          const message =
+            'ログインしていません。ログインしていない場合、一部の機能が制限されます。';
+        }
+      });
+    }
+  };
+  const getUser = async () => {
+    const idToken = await getIdToken();
+    const response = await axiosUtil.get('/user/get', {
+      Authorization: 'Bearer ' + idToken,
+    });
+    if (response) {
+      const user: User = response.data.user;
+      setUser(user);
+    }
+  };
+  // トークン取得処理
+  const getIdToken = async (): Promise<string | null> => {
+    const idToken = await auth.currentUser?.getIdToken();
+    return idToken || null;
+  };
+
+  // ログイン
+  const login = (email: string, password: string): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      signInWithEmailAndPassword(auth, email, password)
+        .then(async () => {
+          // 認証成功した時
+          console.log('login success');
+          // ログイン成功時、諸々読み込み直す
+          window.location.reload();
+          resolve();
+        })
+        .catch(async (error) => {
+          console.log(error);
+          reject(error);
+        });
+    });
+  };
+  // ログアウト
+  const logout = async () => {
+    await auth.signOut();
+    // 画面更新
+    window.location.reload();
+  };
+
+  const init = async () => {
+    await initUser();
+    await fetchTimelines();
+  };
   useEffect(() => {
-    fetchTimelines();
+    init();
   }, []);
 
+  // 画面
+  const ExpandMore = styled((props: ExpandMoreProps) => {
+    const { expand, ...other } = props;
+    return <IconButton {...other} />;
+  })(({ theme, expand }) => ({
+    transform: !expand ? 'rotate(0deg)' : 'rotate(180deg)',
+    marginLeft: 'auto',
+    transition: theme.transitions.create('transform', {
+      duration: theme.transitions.duration.shortest,
+    }),
+  }));
   const getTimelineContent = (timeline: Timeline) => {
     let contentDiv = (
-      <div className="text-gray-700 text-xl my-2">{timeline.content}</div>
+      <Typography variant="body1">{timeline.content}</Typography>
     );
     if (!showHate && timeline.mayHate && !timeline.isShow) {
       contentDiv = (
-        <div role="status" className="pt-2">
-          <div className="h-2.5 bg-gray-200 rounded-full dark:bg-gray-700 w-48 mb-4"></div>
-          <div className="h-2.5 bg-gray-200 rounded-full dark:bg-gray-700 max-w-[360px] mb-2.5"></div>
-          <span className="sr-only">Loading...</span>
-          <div className="flex flex-row-reverse">
-            <button
+        <Box>
+          <Typography>
+            <Skeleton
+              animation={false}
+              variant="text"
+              sx={{ fontSize: '1rem' }}
+            />
+            <Skeleton
+              animation={false}
+              variant="text"
+              sx={{ fontSize: '1rem' }}
+            />
+          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'row-reverse', pt: 1 }}>
+            <Button
+              variant="contained"
+              color="warning"
               onClick={() => showHateTimeline(timeline)}
-              className="flex-none flex items-center bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded"
             >
-              <span className="i-material-symbols-brightness-alert w-5 h-5"></span>
               内容を表示する
-            </button>
-          </div>
-        </div>
+            </Button>
+          </Box>
+        </Box>
       );
     }
     return contentDiv;
   };
   const dispTimelines = timelines.map((timeline) => (
-    <div
-      key={timeline.postDocId}
-      className="rounded overflow-hidden shadow-lg m-2 p-2"
-    >
-      <h2 className="font-bold flex items-center text-xl">
-        {/* TODO:アイコン */}
-        <span>
+    <Card key={timeline.postDocId} sx={{ my: 1 }}>
+      <CardContent sx={{ p: 1 }}>
+        {/* TODO:縦位置ずれ治す */}
+        <Typography variant="h6">
+          {/* TODO:アイコン */}
           {timeline.name} ({timeline.userId})
-        </span>
-        {timeline.mayHate && (
-          <span className="i-material-symbols-brightness-alert w-6 h-6 text-red-500"></span>
-        )}
-      </h2>
-      {}
-      {getTimelineContent(timeline)}
-      <div className="text-xs text-right">
-        at {formatDateToStr(new Date(timeline.createAt), 'yyyy/MM/dd hh:mm:ss')}
-      </div>
-    </div>
+          {timeline.mayHate && <WarningIcon color="warning"></WarningIcon>}
+        </Typography>
+      </CardContent>
+      <CardContent sx={{ p: 1 }}>{getTimelineContent(timeline)}</CardContent>
+      <CardContent sx={{ display: 'flex', flexDirection: 'row-reverse', p: 1 }}>
+        <Typography variant="caption">
+          at{' '}
+          {formatDateToStr(new Date(timeline.createAt), 'yyyy/MM/dd hh:mm:ss')}
+        </Typography>
+      </CardContent>
+    </Card>
   ));
   return (
     <>
-      <nav className="w-full bg-blue-500">
-        <div className="flex justify-between max-w-5xl mx-auto">
-          {/* TODO:アイコン */}
-          <h1 className="text-xl font-bold text-white">hide-hate</h1>
-        </div>
-      </nav>
+      <AppBar position="static">
+        <Toolbar>
+          {/* TODO: アイコン */}
+          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+            hide-hate
+          </Typography>
+          {/* TODO:ログインボタンのアイコン */}
+          <Button color="inherit">Login</Button>
+        </Toolbar>
+      </AppBar>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3">
-        <form className="grid-item m-2">
-          <div className="w-full mb-4 border border-gray-200 rounded-lg bg-gray-50 dark:bg-gray-700 dark:border-gray-600">
-            <div className="px-4 py-2 bg-white rounded-t-lg dark:bg-gray-800">
-              <label htmlFor="comment" className="sr-only">
-                Your comment
-              </label>
-              <textarea
-                id="comment"
-                rows={4}
-                className="w-full px-0 text-sm text-gray-900 bg-white border-0 dark:bg-gray-800 focus:ring-0 dark:text-white dark:placeholder-gray-400"
-                required
-              ></textarea>
-            </div>
-            {/* TODO:投稿領域閉じるボタン */}
-            <div className="flex flex flex-row-reverse items-center justify-between px-3 py-2 border-t dark:border-gray-600">
-              <button className="flex-none flex items-center bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded">
-                投稿する
-              </button>
-            </div>
-          </div>
-        </form>
-        <div className="grid-item col-span-2 m-2">
-          <div>
-            <label className="inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showHate}
-                className="sr-only peer"
-                onChange={handleShowHateCheckbox}
-              />
-              <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-              <span className="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">
+      <Grid container spacing={1}>
+        <Grid xs={12} md={4} sx={{ p: 2 }}>
+          <FormControl fullWidth>
+            <Card>
+              <Collapse in={expanded} timeout="auto" unmountOnExit>
+                <CardContent>
+                  <TextField fullWidth id="post" multiline rows={3} />
+                </CardContent>
+              </Collapse>
+              <CardActions>
+                <Box sx={{ flexGrow: 1 }}>
+                  <ExpandMore
+                    expand={expanded}
+                    onClick={handleExpandClick}
+                    aria-expanded={expanded}
+                    aria-label="show more"
+                  >
+                    <ExpandMoreIcon />
+                  </ExpandMore>
+                </Box>
+                <Button variant="contained">投稿する</Button>
+              </CardActions>
+            </Card>
+          </FormControl>
+        </Grid>
+        <Grid xs={12} md={8} sx={{ p: 2 }}>
+          {/* TODO: スクロールしても表示されるようにする */}
+          <FormControlLabel
+            control={
+              <Switch checked={showHate} onChange={handleShowHateCheckbox} />
+            }
+            label={
+              <Typography variant="body2">
                 ヘイトスピーチの可能性がある投稿を表示する
-                {/* TODO: スクロールしても表示されるようにする */}
-              </span>
-            </label>
-          </div>
-          {dispTimelines}
-        </div>
-      </div>
+              </Typography>
+            }
+          />
+          <Box>{dispTimelines}</Box>
+        </Grid>
+      </Grid>
+
+      <Box>
+        <Box sx={{ m: 1 }}></Box>
+      </Box>
     </>
   );
 };
