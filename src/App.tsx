@@ -1,5 +1,5 @@
 import { useState, FC, ChangeEvent, useEffect, MouseEvent } from 'react';
-import axiosBase, { AxiosError, AxiosInstance } from 'axios';
+import axiosBase, { AxiosError, AxiosHeaders, AxiosInstance } from 'axios';
 import { initializeApp } from 'firebase/app';
 import {
   getAuth,
@@ -104,9 +104,9 @@ class AxiosUtil {
     );
   }
 
-  async get(path: string, headerParams?: Object) {
+  async get(path: string, headers?: AxiosHeaders) {
     console.log(`axios get ${path.split('?')[0]}`);
-    return await this.axios.get(path, headerParams);
+    return await this.axios.get(path, { headers: headers });
   }
 
   async post(path: string, params?: Object, headers?: Object) {
@@ -240,9 +240,11 @@ const App: FC = () => {
   };
   const getUser = async () => {
     const idToken = await getIdToken();
-    const response = await axiosUtil.get('/user/get', {
+    console.log(idToken);
+    const headers = new AxiosHeaders({
       Authorization: 'Bearer ' + idToken,
     });
+    const response = await axiosUtil.get('/user/get', headers);
     if (response) {
       const responseUser: User = response.data.user;
       setUser(responseUser);
