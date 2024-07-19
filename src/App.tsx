@@ -1,13 +1,12 @@
-import { useState, FC, ChangeEvent, useEffect } from 'react';
+import { useState, FC, ChangeEvent, useEffect, MouseEvent } from 'react';
 import axiosBase, { AxiosError, AxiosInstance } from 'axios';
 import { initializeApp } from 'firebase/app';
 import {
   getAuth,
   onAuthStateChanged,
   signInWithEmailAndPassword,
+  connectAuthEmulator,
 } from 'firebase/auth';
-
-import Button from '@mui/material/Button';
 
 // Firebaseの初期化
 const GCP_PROJECTS_ID = import.meta.env.VITE_GCP_PROJECTS_ID || '';
@@ -21,10 +20,14 @@ const config = {
 };
 const app = initializeApp(config);
 const auth = getAuth(app);
+if (process.env.NODE_ENV !== 'production') {
+  connectAuthEmulator(auth, import.meta.env.VITE_FIREBASE_AUTH_EMULATOR_URL);
+}
 
 import './App.css';
 import {
   AppBar,
+  Button,
   Toolbar,
   Typography,
   FormControl,
@@ -40,10 +43,16 @@ import {
   FormControlLabel,
   Switch,
   Skeleton,
+  Menu,
+  MenuItem,
+  Dialog,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import Grid from '@mui/material/Unstable_Grid2';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import WarningIcon from '@mui/icons-material/Warning';
+import PersonIcon from '@mui/icons-material/Person';
 
 // ステータスコード
 const STATUS_CODE = {
@@ -223,8 +232,8 @@ const App: FC = () => {
           await getUser();
         } else {
           // TODO: 未ログイン時は未ログインであることを通知する
-          const message =
-            'ログインしていません。ログインしていない場合、一部の機能が制限されます。';
+          // const message =
+          //   'ログインしていません。ログインしていない場合、一部の機能が制限されます。';
         }
       });
     }
@@ -235,8 +244,8 @@ const App: FC = () => {
       Authorization: 'Bearer ' + idToken,
     });
     if (response) {
-      const user: User = response.data.user;
-      setUser(user);
+      const responseUser: User = response.data.user;
+      setUser(responseUser);
     }
   };
   // トークン取得処理
@@ -246,9 +255,32 @@ const App: FC = () => {
   };
 
   // ログイン
-  const login = (email: string, password: string): Promise<void> => {
-    return new Promise((resolve, reject) => {
-      signInWithEmailAndPassword(auth, email, password)
+  const [isLoginDialogOpen, setIsLoginDialogOpen] = useState(false);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const handleLoginEmailChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setLoginEmail(event.target.value);
+  };
+  const handlePasswordChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setLoginPassword(event.target.value);
+  };
+
+  const openLoginDialog = () => {
+    // フォーム初期化
+    setLoginEmail('');
+    setLoginPassword('');
+
+    // メニュー閉じる
+    setUserMenuAnchorEl(null);
+    // ダイアログ表示
+    setIsLoginDialogOpen(true);
+  };
+  const closeLoginDialog = () => {
+    setIsLoginDialogOpen(false);
+  };
+  const login = () => {
+    new Promise<void>((resolve, reject) => {
+      signInWithEmailAndPassword(auth, loginEmail, loginPassword)
         .then(async () => {
           // 認証成功した時
           console.log('login success');
@@ -257,6 +289,7 @@ const App: FC = () => {
           resolve();
         })
         .catch(async (error) => {
+          // TODO: エラーメッセージダイアログ
           console.log(error);
           reject(error);
         });
@@ -264,9 +297,23 @@ const App: FC = () => {
   };
   // ログアウト
   const logout = async () => {
+    // メニュー閉じる
+    setUserMenuAnchorEl(null);
     await auth.signOut();
     // 画面更新
     window.location.reload();
+  };
+
+  // ユーザーメニュー
+  const [userMenuAnchorEl, setUserMenuAnchorEl] = useState<null | HTMLElement>(
+    null,
+  );
+  const open = Boolean(userMenuAnchorEl);
+  const handleUserButtonClick = (event: MouseEvent<HTMLButtonElement>) => {
+    setUserMenuAnchorEl(event.currentTarget);
+  };
+  const handleUserButtonClose = () => {
+    setUserMenuAnchorEl(null);
   };
 
   const init = async () => {
@@ -348,10 +395,60 @@ const App: FC = () => {
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             hide-hate
           </Typography>
-          {/* TODO:ログインボタンのアイコン */}
-          <Button color="inherit">Login</Button>
+          <IconButton
+            id="user-button"
+            color="inherit"
+            aria-controls={open ? 'user-menu' : undefined}
+            aria-haspopup="true"
+            aria-expanded={open ? 'true' : undefined}
+            onClick={handleUserButtonClick}
+          >
+            <PersonIcon></PersonIcon>
+          </IconButton>
+          <Menu
+            id="user-menu"
+            anchorEl={userMenuAnchorEl}
+            open={open}
+            onClose={handleUserButtonClose}
+            MenuListProps={{
+              'aria-labelledby': 'basic-button',
+            }}
+          >
+            {user && <MenuItem disabled>{user.id}でログイン中</MenuItem>}
+            {user && <MenuItem onClick={logout}>ログアウト</MenuItem>}
+            {!user && <MenuItem onClick={openLoginDialog}>ログイン</MenuItem>}
+          </Menu>
         </Toolbar>
       </AppBar>
+
+      <Dialog open={isLoginDialogOpen} onClose={closeLoginDialog}>
+        <DialogContent>
+          <FormControl>
+            <TextField
+              id="login-email"
+              type="email"
+              onChange={handleLoginEmailChange}
+              label="メールアドレス"
+            />
+            <TextField
+              id="login-password"
+              type="password"
+              onChange={handlePasswordChange}
+              label="パスワード"
+            />
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Box sx={{ flexGrou: 1 }}>
+            <Button color="inherit" onClick={closeLoginDialog}>
+              閉じる
+            </Button>
+          </Box>
+          <Button autoFocus onClick={login}>
+            ログイン
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Grid container spacing={1}>
         <Grid xs={12} md={4} sx={{ p: 2 }}>
