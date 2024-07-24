@@ -6,8 +6,10 @@
   "scripts": {
     "-------↓ローカル----": "",
     "ローカルWebサーバ": "vite",
-    "-------↓バッチ----": "",
-    "build": "lint && tsc -b && vite build",
+    "-------↓モジュール----": "",
+    "build": "lint && tsc -b && vite build && cp -r dist docs",
+    "rebuild": "lint && tsc -b && vite build && rm -R docs && cp -r dist docs",
+    "git": "git add . && git commit && git push origin main",
     "lint": "eslint 'src/**/*.{js,jsx,ts,tsx}'",
     "preview": "vite preview"
   },
