@@ -1,4 +1,11 @@
-import { useState, FC, ChangeEvent, useEffect, MouseEvent } from 'react';
+import {
+  useState,
+  FC,
+  ChangeEvent,
+  useEffect,
+  MouseEvent,
+  MouseEventHandler,
+} from 'react';
 import axiosBase, { AxiosError, AxiosHeaders, AxiosInstance } from 'axios';
 import { initializeApp } from 'firebase/app';
 import {
@@ -48,6 +55,7 @@ import {
   Dialog,
   DialogContent,
   DialogActions,
+  DialogTitle,
 } from '@mui/material';
 import Grid from '@mui/material/Unstable_Grid2';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -67,57 +75,87 @@ const STATUS_CODE = {
   INTERNAL_SERVER_ERROR: 500,
 };
 
-class AxiosUtil {
-  axios: AxiosInstance;
-
-  // コンストラクタでエラーをハンドリングする関数設定
-  constructor() {
-    this.axios = axiosBase.create({
-      baseURL: import.meta.env.VITE_CLOUD_FUNCTION_URL,
-      headers: {
-        'Content-Type': 'application/json;charset=utf-8',
-      },
-      responseType: 'json',
-    });
-
-    // インターセプターを利用したエラー処理ハンドリング
-    this.axios.interceptors.response.use(
-      (response) => {
-        // 成功時は普通にresponse返却
-        return response;
-      },
-      (error: AxiosError) => {
-        console.error(error);
-        const status = error.response?.status || null;
-        const statusText = error.response?.statusText || 'Server Error';
-        const data: any = error.response?.data;
-        const msg = data?.msg || '不明なエラーが発生しました';
-
-        // 404はNotFoundに飛ばす
-        if (status === STATUS_CODE['NOT_FOUND']) {
-          window.location.href = `404?status=${status}&statusText=${statusText}&msg=${msg}`;
-          return;
-        }
-
-        // TODO:エラー内容を表示
-      },
-    );
-  }
-
-  async get(path: string, headers?: AxiosHeaders) {
-    console.log(`axios get ${path.split('?')[0]}`);
-    return await this.axios.get(path, { headers: headers });
-  }
-
-  async post(path: string, params?: Object, headers?: Object) {
-    console.log(`axios post ${path}`);
-    return await this.axios.post(path, params, headers);
-  }
-}
-
-const axiosUtil = new AxiosUtil();
-
 const App: FC = () => {
+  // エラーダイアログ
+  type ErrorDialog = {
+    isOpen: boolean;
+    title: string;
+    content: string;
+    ok: MouseEventHandler<HTMLButtonElement> | null;
+    okButtonLabel: string;
+    cancelButtonLabel: string;
+  };
+  const closedErrorDialog: ErrorDialog = {
+    isOpen: false,
+    title: '',
+    content: '',
+    ok: null,
+    okButtonLabel: 'OK',
+    cancelButtonLabel: 'キャンセル',
+  };
+  const [errorDialog, setErrorDialog] = useState(closedErrorDialog);
+  const closeErrorDialog = () => {
+    setErrorDialog(closedErrorDialog);
+  };
+
+  class AxiosUtil {
+    axios: AxiosInstance;
+
+    // コンストラクタでエラーをハンドリングする関数設定
+    constructor() {
+      this.axios = axiosBase.create({
+        baseURL: import.meta.env.VITE_CLOUD_FUNCTION_URL,
+        headers: {
+          'Content-Type': 'application/json;charset=utf-8',
+        },
+        responseType: 'json',
+      });
+
+      // インターセプターを利用したエラー処理ハンドリング
+      this.axios.interceptors.response.use(
+        (response) => {
+          // 成功時は普通にresponse返却
+          return response;
+        },
+        (error: AxiosError) => {
+          console.error(error);
+          const status = error.response?.status || null;
+          const statusText = error.response?.statusText || 'Server Error';
+          const data: any = error.response?.data;
+          const msg = data?.msg || '不明なエラーが発生しました';
+
+          // 404はNotFoundに飛ばす
+          if (status === STATUS_CODE['NOT_FOUND']) {
+            window.location.href = `404?status=${status}&statusText=${statusText}&msg=${msg}`;
+            return;
+          }
+
+          // エラー内容を表示
+          setErrorDialog({
+            isOpen: true,
+            title: `${status} ${statusText}`,
+            content: msg,
+            ok: null,
+            okButtonLabel: '',
+            cancelButtonLabel: '閉じる',
+          });
+        },
+      );
+    }
+
+    async get(path: string, headers?: AxiosHeaders) {
+      console.log(`axios get ${path.split('?')[0]}`);
+      return await this.axios.get(path, { headers: headers });
+    }
+
+    async post(path: string, params?: Object, headers?: AxiosHeaders) {
+      console.log(`axios post ${path}`);
+      return await this.axios.post(path, params, { headers: headers });
+    }
+  }
+
+  const axiosUtil = new AxiosUtil();
+
   type Timeline = {
     postDocId: string;
     userId: string;
@@ -143,21 +181,27 @@ const App: FC = () => {
     create_at: number;
     name: string;
   };
+  const timelinesResponse2Json = (
+    responseTimelines: ResponseTimeline[],
+  ): Timeline[] => {
+    return responseTimelines.map((t) => {
+      return {
+        postDocId: t.post_doc_id,
+        userId: t.user_id,
+        content: t.content,
+        mayHate: t.may_hate,
+        createAt: t.create_at,
+        name: t.name,
+        isShow: !t.may_hate,
+      };
+    });
+  };
   const fetchTimelines = async () => {
     const response = await axiosUtil.get('/fetch');
     if (response) {
       const responseTimelines: ResponseTimeline[] = response.data.timelines;
-      const newTimelines: Timeline[] = responseTimelines.map((t) => {
-        return {
-          postDocId: t.post_doc_id,
-          userId: t.user_id,
-          content: t.content,
-          mayHate: t.may_hate,
-          createAt: t.create_at,
-          name: t.name,
-          isShow: !t.may_hate,
-        };
-      });
+      const newTimelines: Timeline[] =
+        timelinesResponse2Json(responseTimelines);
       setTimelines(newTimelines);
     }
   };
@@ -217,6 +261,67 @@ const App: FC = () => {
     setExpanded(!expanded);
   };
 
+  const [post, setPost] = useState('');
+  const handlePostChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setPost(event.target.value);
+  };
+  type PostResponse = {
+    may_hate: boolean;
+    timelines: ResponseTimeline[];
+  };
+  const createPost = async (content: string, acceptMayHate: boolean) => {
+    const idToken = await getIdToken();
+    const headers = new AxiosHeaders({
+      Authorization: 'Bearer ' + idToken,
+      'content-type': 'application/json',
+    });
+    const response = await axiosUtil.post(
+      '/post',
+      {
+        content: content,
+        accept_may_hate: acceptMayHate,
+      },
+      headers,
+    );
+    return response.data as PostResponse;
+  };
+  const repost = async (content: string) => {
+    closeErrorDialog();
+    const postResponse: PostResponse = await createPost(content, true);
+    if (postResponse.timelines.length) {
+      // タイムライン更新
+      const newTimelines: Timeline[] = timelinesResponse2Json(
+        postResponse.timelines,
+      );
+      setTimelines(newTimelines);
+      setPost('');
+    }
+  };
+  const handlePostButtonClick = async () => {
+    const postResponse: PostResponse = await createPost(post, false);
+    // ヘイトかもフラグ立っていてタイムライン帰ってきていない場合は再送するか確認を取る
+    if (postResponse.may_hate && postResponse.timelines.length === 0) {
+      setErrorDialog({
+        isOpen: true,
+        title: '投稿内容の確認',
+        content:
+          'あなたの投稿はヘイトスピーチとみなされる可能性があります。そのまま投稿しますか？',
+        ok: () => {
+          repost(post);
+        },
+        okButtonLabel: '投稿',
+        cancelButtonLabel: 'キャンセル',
+      });
+    } else {
+      // そうでない場合は正常系なので、タイムライン更新
+      const newTimelines: Timeline[] = timelinesResponse2Json(
+        postResponse.timelines,
+      );
+      setTimelines(newTimelines);
+      setPost('');
+    }
+  };
+
   const initUser = async () => {
     // ユーザー情報取得
     let identityPlatformUser = getIdentityPlatformUser();
@@ -232,15 +337,22 @@ const App: FC = () => {
           await getUser();
         } else {
           // TODO: 未ログイン時は未ログインであることを通知する
-          // const message =
-          //   'ログインしていません。ログインしていない場合、一部の機能が制限されます。';
+          const message =
+            'ログインしていません。ログインしていない場合、一部の機能が制限されます。';
+          setErrorDialog({
+            isOpen: true,
+            title: `ログインエラー`,
+            content: message,
+            ok: null,
+            okButtonLabel: '',
+            cancelButtonLabel: '閉じる',
+          });
         }
       });
     }
   };
   const getUser = async () => {
     const idToken = await getIdToken();
-    console.log(idToken);
     const headers = new AxiosHeaders({
       Authorization: 'Bearer ' + idToken,
     });
@@ -280,6 +392,7 @@ const App: FC = () => {
   const closeLoginDialog = () => {
     setIsLoginDialogOpen(false);
   };
+
   const login = () => {
     new Promise<void>((resolve, reject) => {
       signInWithEmailAndPassword(auth, loginEmail, loginPassword)
@@ -423,18 +536,39 @@ const App: FC = () => {
         </Toolbar>
       </AppBar>
 
+      <Dialog open={errorDialog.isOpen} onClose={closeErrorDialog}>
+        <DialogTitle>{errorDialog.title}</DialogTitle>
+        <DialogContent>
+          <Typography>{errorDialog.content}</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Box sx={{ flexGrou: 1 }}>
+            <Button color="inherit" onClick={closeErrorDialog}>
+              {errorDialog.cancelButtonLabel}
+            </Button>
+          </Box>
+          {errorDialog.ok && (
+            <Button color="error" onClick={errorDialog.ok}>
+              {errorDialog.okButtonLabel}
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
+
       <Dialog open={isLoginDialogOpen} onClose={closeLoginDialog}>
         <DialogContent>
           <FormControl>
             <TextField
               id="login-email"
               type="email"
+              value={loginEmail}
               onChange={handleLoginEmailChange}
               label="メールアドレス"
             />
             <TextField
               id="login-password"
               type="password"
+              value={loginPassword}
               onChange={handlePasswordChange}
               label="パスワード"
             />
@@ -458,7 +592,14 @@ const App: FC = () => {
             <Card>
               <Collapse in={expanded} timeout="auto" unmountOnExit>
                 <CardContent>
-                  <TextField fullWidth id="post" multiline rows={3} />
+                  <TextField
+                    fullWidth
+                    id="post"
+                    multiline
+                    rows={3}
+                    value={post}
+                    onChange={handlePostChange}
+                  />
                 </CardContent>
               </Collapse>
               <CardActions>
@@ -472,7 +613,13 @@ const App: FC = () => {
                     <ExpandMoreIcon />
                   </ExpandMore>
                 </Box>
-                <Button variant="contained">投稿する</Button>
+                <Button
+                  variant="contained"
+                  onClick={handlePostButtonClick}
+                  disabled={!post}
+                >
+                  投稿する
+                </Button>
               </CardActions>
             </Card>
           </FormControl>
