@@ -454,7 +454,12 @@ const App: FC = () => {
     let contentDiv = (
       <Typography variant="body1">{timeline.content}</Typography>
     );
-    if (!showHate && timeline.mayHate && !timeline.isShow) {
+    if (
+      !showHate &&
+      timeline.mayHate &&
+      !timeline.isShow &&
+      timeline.userId !== user?.id
+    ) {
       contentDiv = (
         <Box>
           <Typography>
