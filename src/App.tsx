@@ -594,7 +594,7 @@ const App: FC = () => {
         </DialogActions>
       </Dialog>
 
-      <Grid container spacing={1}>
+      <Grid container spacing={0}>
         <Grid xs={12} md={4} sx={{ p: 2 }}>
           <FormControl fullWidth>
             <Card>
@@ -647,10 +647,6 @@ const App: FC = () => {
           <Box>{dispTimelines}</Box>
         </Grid>
       </Grid>
-
-      <Box>
-        <Box sx={{ m: 1 }}></Box>
-      </Box>
     </>
   );
 };
