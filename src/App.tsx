@@ -502,7 +502,10 @@ const App: FC = () => {
       <CardContent sx={{ display: 'flex', flexDirection: 'row-reverse', p: 1 }}>
         <Typography variant="caption">
           at{' '}
-          {formatDateToStr(new Date(timeline.createAt), 'yyyy/MM/dd hh:mm:ss')}
+          {formatDateToStr(
+            new Date(timeline.createAt * 1000),
+            'yyyy/MM/dd hh:mm:ss',
+          )}
         </Typography>
       </CardContent>
     </Card>
