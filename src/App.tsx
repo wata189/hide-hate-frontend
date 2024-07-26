@@ -14,23 +14,6 @@ import {
   signInWithEmailAndPassword,
   connectAuthEmulator,
 } from 'firebase/auth';
-
-// Firebaseの初期化
-const GCP_PROJECTS_ID = import.meta.env.VITE_GCP_PROJECTS_ID || '';
-const config = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: GCP_PROJECTS_ID,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
-};
-const app = initializeApp(config);
-const auth = getAuth(app);
-if (process.env.NODE_ENV !== 'production') {
-  connectAuthEmulator(auth, import.meta.env.VITE_FIREBASE_AUTH_EMULATOR_URL);
-}
-
 import './App.css';
 import {
   AppBar,
@@ -56,11 +39,30 @@ import {
   DialogContent,
   DialogActions,
   DialogTitle,
+  Avatar,
 } from '@mui/material';
 import Grid from '@mui/material/Unstable_Grid2';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import WarningIcon from '@mui/icons-material/Warning';
 import PersonIcon from '@mui/icons-material/Person';
+
+// Firebaseの初期化
+const GCP_PROJECTS_ID = import.meta.env.VITE_GCP_PROJECTS_ID || '';
+const config = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: GCP_PROJECTS_ID,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+};
+const app = initializeApp(config);
+const auth = getAuth(app);
+if (process.env.NODE_ENV !== 'production') {
+  connectAuthEmulator(auth, import.meta.env.VITE_FIREBASE_AUTH_EMULATOR_URL);
+}
+
+const USERICON_URL = import.meta.env.VITE_USERICON_URL;
 
 // ステータスコード
 const STATUS_CODE = {
@@ -454,7 +456,12 @@ const App: FC = () => {
     let contentDiv = (
       <Typography variant="body1">{timeline.content}</Typography>
     );
-    if (!showHate && timeline.mayHate && !timeline.isShow) {
+    if (
+      !showHate &&
+      timeline.mayHate &&
+      !timeline.isShow &&
+      timeline.userId !== user?.id
+    ) {
       contentDiv = (
         <Box>
           <Typography>
@@ -485,19 +492,25 @@ const App: FC = () => {
   };
   const dispTimelines = timelines.map((timeline) => (
     <Card key={timeline.postDocId} sx={{ my: 1 }}>
-      <CardContent sx={{ p: 1 }}>
-        {/* TODO:縦位置ずれ治す */}
-        <Typography variant="h6">
-          {/* TODO:アイコン */}
+      <CardContent sx={{ p: 1, display: 'flex', alignItems: 'center' }}>
+        <Avatar
+          alt={timeline.name + 'のアイコン'}
+          src={USERICON_URL + timeline.userId + '.png'}
+          sx={{ flexGrow: 0 }}
+        />
+        <Typography variant="h6" sx={{ mx: 1 }}>
           {timeline.name} ({timeline.userId})
-          {timeline.mayHate && <WarningIcon color="warning"></WarningIcon>}
         </Typography>
+        {timeline.mayHate && <WarningIcon color="warning"></WarningIcon>}
       </CardContent>
       <CardContent sx={{ p: 1 }}>{getTimelineContent(timeline)}</CardContent>
       <CardContent sx={{ display: 'flex', flexDirection: 'row-reverse', p: 1 }}>
         <Typography variant="caption">
           at{' '}
-          {formatDateToStr(new Date(timeline.createAt), 'yyyy/MM/dd hh:mm:ss')}
+          {formatDateToStr(
+            new Date(timeline.createAt * 1000),
+            'yyyy/MM/dd hh:mm:ss',
+          )}
         </Typography>
       </CardContent>
     </Card>
@@ -586,7 +599,7 @@ const App: FC = () => {
         </DialogActions>
       </Dialog>
 
-      <Grid container spacing={1}>
+      <Grid container spacing={0}>
         <Grid xs={12} md={4} sx={{ p: 2 }}>
           <FormControl fullWidth>
             <Card>
@@ -639,10 +652,6 @@ const App: FC = () => {
           <Box>{dispTimelines}</Box>
         </Grid>
       </Grid>
-
-      <Box>
-        <Box sx={{ m: 1 }}></Box>
-      </Box>
     </>
   );
 };
