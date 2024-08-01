@@ -28,7 +28,6 @@ import {
   Collapse,
   IconButton,
   IconButtonProps,
-  styled,
   Box,
   FormControlLabel,
   Switch,
@@ -41,6 +40,8 @@ import {
   DialogTitle,
   Avatar,
 } from '@mui/material';
+import { Theme, styled } from '@mui/material/styles';
+import { grey } from '@mui/material/colors';
 import Grid from '@mui/material/Unstable_Grid2';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import WarningIcon from '@mui/icons-material/Warning';
@@ -76,6 +77,13 @@ const STATUS_CODE = {
 
   INTERNAL_SERVER_ERROR: 500,
 };
+
+// const useStyles = styled((theme: Theme) => ({
+//   content: {
+//     bgcolor: 'red',
+//   },
+// }));
+const MainGrid = styled(Grid)(({ theme }) => ({}));
 
 const App: FC = () => {
   // エラーダイアログ
@@ -599,7 +607,7 @@ const App: FC = () => {
         </DialogActions>
       </Dialog>
 
-      <Grid container spacing={0}>
+      <MainGrid container spacing={0}>
         <Grid xs={12} md={4} sx={{ p: 2 }}>
           <FormControl fullWidth>
             <Card>
@@ -651,7 +659,7 @@ const App: FC = () => {
           />
           <Box>{dispTimelines}</Box>
         </Grid>
-      </Grid>
+      </MainGrid>
     </>
   );
 };
