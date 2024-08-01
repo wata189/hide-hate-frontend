@@ -17,7 +17,6 @@ const fontFamily = [
   'メイリオ',
   'ＭＳ Ｐゴシック',
   'sans-serif',
-  // 使用したいフォントを以降に羅列してください
 ].join(',');
 
 const theme = createTheme({
