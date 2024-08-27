@@ -587,7 +587,7 @@ const App: FC = () => {
           <Typography>{errorDialog.content}</Typography>
         </DialogContent>
         <DialogActions>
-          <Box sx={{ flexGrou: 1 }}>
+          <Box sx={{ flexGrow: 1 }}>
             <Button color="inherit" onClick={closeErrorDialog}>
               {errorDialog.cancelButtonLabel}
             </Button>
@@ -614,6 +614,7 @@ const App: FC = () => {
               id="login-email"
               type="email"
               value={loginEmail}
+              sx={{ m: 1 }}
               onChange={handleLoginEmailChange}
               label="メールアドレス"
             />
@@ -621,13 +622,14 @@ const App: FC = () => {
               id="login-password"
               type="password"
               value={loginPassword}
+              sx={{ m: 1 }}
               onChange={handlePasswordChange}
               label="パスワード"
             />
           </FormControl>
         </DialogContent>
         <DialogActions>
-          <Box sx={{ flexGrou: 1 }}>
+          <Box sx={{ flexGrow: 1 }}>
             <Button color="inherit" onClick={closeLoginDialog}>
               閉じる
             </Button>
@@ -668,7 +670,7 @@ const App: FC = () => {
                 <Button
                   variant="contained"
                   onClick={handlePostButtonClick}
-                  disabled={!post}
+                  disabled={!post || !user}
                 >
                   投稿する
                 </Button>
