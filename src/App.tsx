@@ -39,12 +39,15 @@ import {
   DialogActions,
   DialogTitle,
   Avatar,
+  CircularProgress,
+  Backdrop,
 } from '@mui/material';
-import { styled } from '@mui/material/styles';
+import { styled, useTheme } from '@mui/material/styles';
 import Grid from '@mui/material/Unstable_Grid2';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import WarningIcon from '@mui/icons-material/Warning';
 import PersonIcon from '@mui/icons-material/Person';
+import { red } from '@mui/material/colors';
 
 // Firebaseの初期化
 const GCP_PROJECTS_ID = import.meta.env.VITE_GCP_PROJECTS_ID || '';
@@ -100,6 +103,8 @@ const App: FC = () => {
     setErrorDialog(closedErrorDialog);
   };
 
+  const [isLoading, setIsLoading] = useState(false);
+
   class AxiosUtil {
     axios: AxiosInstance;
 
@@ -112,10 +117,27 @@ const App: FC = () => {
         },
         responseType: 'json',
       });
+      // リクエストインターセプターでローディング
+      this.axios.interceptors.request.use(
+        function (config) {
+          // ローディング表示
+          setIsLoading(true);
+          // リクエストが送信される前の処理
+          return config;
+        },
+        function (error) {
+          // ローディング解除
+          setIsLoading(false);
+          // リクエスト エラーの処理
+          return Promise.reject(error);
+        },
+      );
 
       // インターセプターを利用したエラー処理ハンドリング
       this.axios.interceptors.response.use(
         (response) => {
+          // ローディング解除
+          setIsLoading(false);
           // 成功時は普通にresponse返却
           return response;
         },
@@ -131,6 +153,9 @@ const App: FC = () => {
             window.location.href = `404?status=${status}&statusText=${statusText}&msg=${msg}`;
             return;
           }
+
+          // ローディング解除
+          setIsLoading(false);
 
           // エラー内容を表示
           setErrorDialog({
@@ -335,10 +360,10 @@ const App: FC = () => {
       onAuthStateChanged(auth, async () => {
         identityPlatformUser = getIdentityPlatformUser();
         if (identityPlatformUser) {
-          // TODO: サーバからユーザ情報取得
+          // サーバからユーザ情報取得
           await getUser();
         } else {
-          // TODO: 未ログイン時は未ログインであることを通知する
+          // 未ログイン時は未ログインであることを通知する
           const message =
             'ログインしていません。ログインしていない場合、一部の機能が制限されます。';
           setErrorDialog({
@@ -406,7 +431,16 @@ const App: FC = () => {
           resolve();
         })
         .catch(async (error) => {
-          // TODO: エラーメッセージダイアログ
+          // エラーメッセージダイアログ
+          const message = 'メールアドレスかパスワードが間違っています。';
+          setErrorDialog({
+            isOpen: true,
+            title: `ログインエラー`,
+            content: message,
+            ok: null,
+            okButtonLabel: '',
+            cancelButtonLabel: '閉じる',
+          });
           console.log(error);
           reject(error);
         });
@@ -440,6 +474,8 @@ const App: FC = () => {
   useEffect(() => {
     init();
   }, []);
+
+  const headerHeight = '64px';
 
   // 画面
   const ExpandMore = styled((props: ExpandMoreProps) => {
@@ -491,7 +527,7 @@ const App: FC = () => {
     return contentDiv;
   };
   const dispTimelines = timelines.map((timeline) => (
-    <Card key={timeline.postDocId} sx={{ my: 1 }}>
+    <Card key={timeline.postDocId} sx={{ mb: 2 }}>
       <CardContent sx={{ p: 1, display: 'flex', alignItems: 'center' }}>
         <Avatar
           alt={timeline.name + 'のアイコン'}
@@ -517,9 +553,8 @@ const App: FC = () => {
   ));
   return (
     <>
-      <AppBar position="static">
+      <AppBar position="fixed">
         <Toolbar>
-          {/* TODO: アイコン */}
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             hide-hate
           </Typography>
@@ -555,7 +590,7 @@ const App: FC = () => {
           <Typography>{errorDialog.content}</Typography>
         </DialogContent>
         <DialogActions>
-          <Box sx={{ flexGrou: 1 }}>
+          <Box sx={{ flexGrow: 1 }}>
             <Button color="inherit" onClick={closeErrorDialog}>
               {errorDialog.cancelButtonLabel}
             </Button>
@@ -568,6 +603,13 @@ const App: FC = () => {
         </DialogActions>
       </Dialog>
 
+      <Backdrop
+        sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }}
+        open={isLoading}
+      >
+        <CircularProgress color="inherit" />
+      </Backdrop>
+
       <Dialog open={isLoginDialogOpen} onClose={closeLoginDialog}>
         <DialogContent>
           <FormControl>
@@ -575,6 +617,7 @@ const App: FC = () => {
               id="login-email"
               type="email"
               value={loginEmail}
+              sx={{ m: 1 }}
               onChange={handleLoginEmailChange}
               label="メールアドレス"
             />
@@ -582,13 +625,14 @@ const App: FC = () => {
               id="login-password"
               type="password"
               value={loginPassword}
+              sx={{ m: 1 }}
               onChange={handlePasswordChange}
               label="パスワード"
             />
           </FormControl>
         </DialogContent>
         <DialogActions>
-          <Box sx={{ flexGrou: 1 }}>
+          <Box sx={{ flexGrow: 1 }}>
             <Button color="inherit" onClick={closeLoginDialog}>
               閉じる
             </Button>
@@ -599,8 +643,15 @@ const App: FC = () => {
         </DialogActions>
       </Dialog>
 
-      <Grid container spacing={0}>
-        <Grid xs={12} md={4} sx={{ p: 2 }}>
+      <Grid
+        sx={{
+          height: '100vh',
+          display: 'flex',
+          flexDirection: { xs: 'column', md: 'row' },
+        }}
+      >
+        <Grid sx={{ p: 2, width: { xs: '100%', md: '33%' } }}>
+          <Toolbar />
           <FormControl fullWidth>
             <Card>
               <Collapse in={expanded} timeout="auto" unmountOnExit>
@@ -629,16 +680,13 @@ const App: FC = () => {
                 <Button
                   variant="contained"
                   onClick={handlePostButtonClick}
-                  disabled={!post}
+                  disabled={!post || !user}
                 >
                   投稿する
                 </Button>
               </CardActions>
             </Card>
           </FormControl>
-        </Grid>
-        <Grid xs={12} md={8} sx={{ p: 2 }}>
-          {/* TODO: スクロールしても表示されるようにする */}
           <FormControlLabel
             control={
               <Switch checked={showHate} onChange={handleShowHateCheckbox} />
@@ -648,8 +696,21 @@ const App: FC = () => {
                 ヘイトスピーチの可能性がある投稿を表示する
               </Typography>
             }
+            sx={{ pt: 1 }}
           />
-          <Box>{dispTimelines}</Box>
+        </Grid>
+        <Grid
+          sx={{
+            flexGrow: 1,
+            overflowY: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          <Toolbar sx={{ display: { xs: 'none', md: 'block' } }} />
+          <Box p={2} sx={{ flexGrow: 1, overflowY: 'scroll' }}>
+            {dispTimelines}
+          </Box>
         </Grid>
       </Grid>
     </>
