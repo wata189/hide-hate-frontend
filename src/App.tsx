@@ -42,11 +42,12 @@ import {
   CircularProgress,
   Backdrop,
 } from '@mui/material';
-import { styled } from '@mui/material/styles';
+import { styled, useTheme } from '@mui/material/styles';
 import Grid from '@mui/material/Unstable_Grid2';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import WarningIcon from '@mui/icons-material/Warning';
 import PersonIcon from '@mui/icons-material/Person';
+import { red } from '@mui/material/colors';
 
 // Firebaseの初期化
 const GCP_PROJECTS_ID = import.meta.env.VITE_GCP_PROJECTS_ID || '';
@@ -474,6 +475,8 @@ const App: FC = () => {
     init();
   }, []);
 
+  const headerHeight = '64px';
+
   // 画面
   const ExpandMore = styled((props: ExpandMoreProps) => {
     const { expand, ...other } = props;
@@ -524,7 +527,7 @@ const App: FC = () => {
     return contentDiv;
   };
   const dispTimelines = timelines.map((timeline) => (
-    <Card key={timeline.postDocId} sx={{ my: 1 }}>
+    <Card key={timeline.postDocId} sx={{ mb: 2 }}>
       <CardContent sx={{ p: 1, display: 'flex', alignItems: 'center' }}>
         <Avatar
           alt={timeline.name + 'のアイコン'}
@@ -550,7 +553,7 @@ const App: FC = () => {
   ));
   return (
     <>
-      <AppBar position="static">
+      <AppBar position="fixed">
         <Toolbar>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             hide-hate
@@ -640,8 +643,15 @@ const App: FC = () => {
         </DialogActions>
       </Dialog>
 
-      <Grid container spacing={0}>
-        <Grid xs={12} md={4} sx={{ p: 2 }}>
+      <Grid
+        sx={{
+          height: '100vh',
+          display: 'flex',
+          flexDirection: { xs: 'column', md: 'row' },
+        }}
+      >
+        <Grid sx={{ p: 2, width: { xs: '100%', md: '33%' } }}>
+          <Toolbar />
           <FormControl fullWidth>
             <Card>
               <Collapse in={expanded} timeout="auto" unmountOnExit>
@@ -677,9 +687,6 @@ const App: FC = () => {
               </CardActions>
             </Card>
           </FormControl>
-        </Grid>
-        <Grid xs={12} md={8} sx={{ p: 2 }}>
-          {/* TODO: スクロールしても表示されるようにする */}
           <FormControlLabel
             control={
               <Switch checked={showHate} onChange={handleShowHateCheckbox} />
@@ -689,8 +696,21 @@ const App: FC = () => {
                 ヘイトスピーチの可能性がある投稿を表示する
               </Typography>
             }
+            sx={{ pt: 1 }}
           />
-          <Box>{dispTimelines}</Box>
+        </Grid>
+        <Grid
+          sx={{
+            flexGrow: 1,
+            overflowY: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          <Toolbar sx={{ display: { xs: 'none', md: 'block' } }} />
+          <Box p={2} sx={{ flexGrow: 1, overflowY: 'scroll' }}>
+            {dispTimelines}
+          </Box>
         </Grid>
       </Grid>
     </>
