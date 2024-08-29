@@ -42,12 +42,11 @@ import {
   CircularProgress,
   Backdrop,
 } from '@mui/material';
-import { styled, useTheme } from '@mui/material/styles';
+import { styled } from '@mui/material/styles';
 import Grid from '@mui/material/Unstable_Grid2';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import WarningIcon from '@mui/icons-material/Warning';
 import PersonIcon from '@mui/icons-material/Person';
-import { red } from '@mui/material/colors';
 
 // Firebaseの初期化
 const GCP_PROJECTS_ID = import.meta.env.VITE_GCP_PROJECTS_ID || '';
@@ -474,8 +473,6 @@ const App: FC = () => {
   useEffect(() => {
     init();
   }, []);
-
-  const headerHeight = '64px';
 
   // 画面
   const ExpandMore = styled((props: ExpandMoreProps) => {
